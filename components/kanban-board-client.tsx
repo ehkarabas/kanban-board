@@ -225,7 +225,7 @@ function KanbanBoardContent() {
                         id: task.id,
                         title: task.title,
                         description: task.description || undefined,
-                        priority: task.priority as "low" | "medium" | "high",
+                        priority: task.priority ? task.priority.toLowerCase() as "low" | "medium" | "high" : undefined,
                         assignee: task.assigneeId ? {
                           id: task.assigneeId,
                           name: getAssigneeName(task.assigneeId),

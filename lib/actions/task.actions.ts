@@ -1,11 +1,25 @@
 'use server'
 
-import { db } from '@/lib/db'
-import { columns, tasks, Column, Task } from '@/lib/db/schema'
-import { eq, asc, isNull, and } from 'drizzle-orm'
+import { prisma } from '@/lib/db/prisma'
 import { taskSchema, TaskFormData } from '@/lib/schemas'
 import * as z from 'zod'
 import { revalidatePath } from 'next/cache'
+
+// Use Prisma generated types
+type Task = {
+  id: string
+  title: string
+  description: string | null
+  order: number
+  priority: 'LOW' | 'MEDIUM' | 'HIGH'
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE'
+  assigneeId: string | null
+  dueDate: Date | null
+  deletedAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+  columnId: string
+}
 
 type ApiResponse<T> = { success: true; data: T } | { success: false; error: string }
 
@@ -21,34 +35,45 @@ export async function createTask(data: TaskFormData): Promise<ApiResponse<Task>>
     const validatedData = taskSchema.parse(data)
     
     // Validate column exists
-    const columnExists = await db
-      .select()
-      .from(columns)
-      .where(eq(columns.id, validatedData.columnId))
-      .limit(1)
+    const columnExists = await prisma.column.findFirst({
+      where: {
+        id: validatedData.columnId,
+        deletedAt: null
+      }
+    })
     
-    if (columnExists.length === 0) {
+    if (!columnExists) {
       return { success: false, error: 'Invalid column ID' }
     }
     
     // Get the next order for this column (only non-deleted tasks)
-    const existingTasks = await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.columnId, validatedData.columnId), isNull(tasks.deletedAt)))
-      .orderBy(asc(tasks.order))
+    const existingTasks = await prisma.task.findMany({
+      where: {
+        columnId: validatedData.columnId,
+        deletedAt: null
+      },
+      orderBy: {
+        order: 'asc'
+      }
+    })
     
     const nextOrder = existingTasks.length
     
-    // Since deletedAt is not included in the insert values, PostgreSQL automatically sets it to NULL (the default for nullable columns).
-    const newTask = await db.insert(tasks).values({
-      title: validatedData.title,
-      description: validatedData.description || null,
-      priority: validatedData.priority || 'medium',
-      assigneeId: validatedData.assigneeId || null,
-      columnId: validatedData.columnId,
-      order: nextOrder,
-    }).returning()
+    // Map priority values to match Prisma enum
+    let priority: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM'
+    if (validatedData.priority === 'low') priority = 'LOW'
+    else if (validatedData.priority === 'high') priority = 'HIGH'
+    
+    const newTask = await prisma.task.create({
+      data: {
+        title: validatedData.title,
+        description: validatedData.description || null,
+        priority: priority,
+        assigneeId: validatedData.assigneeId || null,
+        columnId: validatedData.columnId,
+        order: nextOrder,
+      }
+    })
 
 
     // Yeni Request Geldiğinde - Fresh data ile yeniden generate edilir
@@ -75,7 +100,7 @@ export async function createTask(data: TaskFormData): Promise<ApiResponse<Task>>
     // 🚀 Sonraki request'ler yine cache'den serve edilir
     revalidatePath('/')
     
-    return { success: true, data: newTask[0] }
+    return { success: true, data: newTask }
   } catch (error) {
     console.error('Error creating task:', error)
     if (error instanceof z.ZodError) {
@@ -95,11 +120,14 @@ export async function getTasks(): Promise<ApiResponse<Task[]>> {
   // console.log('🔍 getTasks called at:', new Date().toISOString());
   await delay(ARTIFICIAL_DELAY_MS)
   try {
-    const result = await db
-      .select()
-      .from(tasks)
-      .where(isNull(tasks.deletedAt))
-      .orderBy(asc(tasks.order))
+    const result = await prisma.task.findMany({
+      where: {
+        deletedAt: null
+      },
+      orderBy: {
+        order: 'asc'
+      }
+    })
     // console.log('📊 Database query executed, returned:', result.length, 'tasks');
     return { success: true, data: result }
   } catch (error) {
@@ -114,11 +142,15 @@ export async function getTasks(): Promise<ApiResponse<Task[]>> {
 export async function getTasksByColumn(columnId: string): Promise<ApiResponse<Task[]>> {
   await delay(ARTIFICIAL_DELAY_MS)
   try {
-    const result = await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.columnId, columnId), isNull(tasks.deletedAt)))
-      .orderBy(asc(tasks.order))
+    const result = await prisma.task.findMany({
+      where: {
+        columnId: columnId,
+        deletedAt: null
+      },
+      orderBy: {
+        order: 'asc'
+      }
+    })
     return { success: true, data: result }
   } catch (error) {
     console.error('Error fetching tasks by column:', error)
@@ -131,29 +163,42 @@ export async function getTasksByColumn(columnId: string): Promise<ApiResponse<Ta
 
 export async function updateTask(taskId: string, data: Partial<TaskFormData>): Promise<ApiResponse<Task>> {
   try {
+    // Check if task exists and is not deleted
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        deletedAt: null
+      }
+    })
+
+    if (!existingTask) {
+      return { success: false, error: 'Task not found' }
+    }
+
     const updateData: any = {}
 
     if (data.title !== undefined) updateData.title = data.title
     if (data.description !== undefined) updateData.description = data.description || null
-    if (data.priority !== undefined) updateData.priority = data.priority
+    if (data.priority !== undefined) {
+      // Map priority values to match Prisma enum
+      let priority: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM'
+      if (data.priority === 'low') priority = 'LOW'
+      else if (data.priority === 'high') priority = 'HIGH'
+      updateData.priority = priority
+    }
     if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId || null
     if (data.columnId !== undefined) updateData.columnId = data.columnId
 
     // Always update updatedAt to now
     updateData.updatedAt = new Date()
 
-    const updatedTask = await db
-      .update(tasks)
-      .set(updateData)
-      .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
-      .returning()
-
-    if (updatedTask.length === 0) {
-      return { success: false, error: 'Task not found' }
-    }
+    const updatedTask = await prisma.task.update({
+      where: { id: taskId },
+      data: updateData
+    })
 
     revalidatePath('/')
-    return { success: true, data: updatedTask[0] }
+    return { success: true, data: updatedTask }
   } catch (error) {
     console.error('Error updating task:', error)
     if (error instanceof Error) {
@@ -165,18 +210,25 @@ export async function updateTask(taskId: string, data: Partial<TaskFormData>): P
 
 export async function deleteTask(taskId: string): Promise<ApiResponse<{ id: string }>> {
   try {
-    const deletedTask = await db
-      .update(tasks)
-      .set({ 
-        deletedAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
-      .returning({ id: tasks.id })
+    // Check if task exists and is not deleted
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        deletedAt: null
+      }
+    })
 
-    if (deletedTask.length === 0) {
+    if (!existingTask) {
       return { success: false, error: 'Task not found' }
     }
+
+    await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      }
+    })
 
     revalidatePath('/')
     return { success: true, data: { id: taskId } }
@@ -192,53 +244,54 @@ export async function deleteTask(taskId: string): Promise<ApiResponse<{ id: stri
 export async function moveTask(taskId: string, targetColumnId: string): Promise<ApiResponse<Task>> {
   try {
     // Validate that the task exists and is not deleted
-    const existingTask = await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
-      .limit(1)
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        deletedAt: null
+      }
+    })
 
-    if (existingTask.length === 0) {
+    if (!existingTask) {
       return { success: false, error: 'Task not found' }
     }
 
     // Validate that the target column exists and is not deleted
-    const targetColumn = await db
-      .select()
-      .from(columns)
-      .where(and(eq(columns.id, targetColumnId), isNull(columns.deletedAt)))
-      .limit(1)
+    const targetColumn = await prisma.column.findFirst({
+      where: {
+        id: targetColumnId,
+        deletedAt: null
+      }
+    })
 
-    if (targetColumn.length === 0) {
+    if (!targetColumn) {
       return { success: false, error: 'Target column not found' }
     }
 
     // Get the next order for the target column (only non-deleted tasks)
-    const existingTasksInTarget = await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.columnId, targetColumnId), isNull(tasks.deletedAt)))
-      .orderBy(asc(tasks.order))
+    const existingTasksInTarget = await prisma.task.findMany({
+      where: {
+        columnId: targetColumnId,
+        deletedAt: null
+      },
+      orderBy: {
+        order: 'asc'
+      }
+    })
     
     const nextOrder = existingTasksInTarget.length
 
     // Update the task with new column and order
-    const updatedTask = await db
-      .update(tasks)
-      .set({
+    const updatedTask = await prisma.task.update({
+      where: { id: taskId },
+      data: {
         columnId: targetColumnId,
         order: nextOrder,
         updatedAt: new Date()
-      })
-      .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
-      .returning()
-
-    if (updatedTask.length === 0) {
-      return { success: false, error: 'Failed to update task' }
-    }
+      }
+    })
 
     revalidatePath('/')
-    return { success: true, data: updatedTask[0] }
+    return { success: true, data: updatedTask }
   } catch (error) {
     console.error('Error moving task:', error)
     if (error instanceof Error) {
