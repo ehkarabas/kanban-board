@@ -1,10 +1,11 @@
 {
-  "name": "team-tasks",
+  "name": "coolboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",

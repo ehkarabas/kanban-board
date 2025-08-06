@@ -2,8 +2,17 @@
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![Code Coverage](https://img.shields.io/badge/coverage-90%25-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Version](https://img.shields.io/badge/version-1.0.0-lightgrey)
 
+## 🔗 Live Demo
+
+Experience CoolBoard in action! The application is deployed and ready to use:
+
+[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-CoolBoard-blue?style=for-the-badge&logo=vercel&logoColor=white)](https://kanban-board-ehkarabas.vercel.app/)
+
+**✨ Try it now:** [https://kanban-board-ehkarabas.vercel.app/](https://kanban-board-ehkarabas.vercel.app/)
+
 ## 📋 Table of Contents
 
+- [🔗 Live Demo](#-live-demo)
 - [📖 About The Project](#-about-the-project)
 - [✨ Key Features](#-key-features)
 - [🛠️ Built With](#️-built-with)
