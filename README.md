@@ -52,11 +52,11 @@ You need to have Node.js and npm installed on your machine.
 
 1.  Clone the repository:
     ```sh
-    git clone https://github.com/your_username/CoolBoard.git
+    git clone https://github.com/ehkarabas/kanban-board.git
     ```
 2.  Navigate to the project directory:
     ```sh
-    cd CoolBoard
+    cd kanban-board
     ```
 3.  Install dependencies:
     ```sh
