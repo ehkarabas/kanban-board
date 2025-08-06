@@ -1,0 +1,70 @@
+# version: '3.8' # docker-compose version - the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion
+
+services: # services to run
+  postgres: # postgres database
+    image: postgres:17.5-alpine3.22 # postgres image - https://hub.docker.com/_/postgres - PostgreSQL 17.5 Alpine Linux tabanlı image
+    container_name: kanban-db # container name
+    restart: unless-stopped # restart policy - Container durdurulan durumlar dışında otomatik restart edilecek
+    environment: # environment variables
+      POSTGRES_DB: kanban # database name
+      POSTGRES_USER: postgres # database user
+      POSTGRES_PASSWORD: postgres # database password
+      POSTGRES_HOST_AUTH_METHOD: trust # Bu satırı ekleyin - tüm connection'lar için trust auth
+    ports: # ports to expose
+      - "5433:5432" # host:container - Host'un 5433 port'u container'ın 5432 port'una map ediliyor, Windows'ta PostgreSQL kurulmuşsa 5433 port'u kullanılır
+    volumes: # volumes to mount
+      - postgres_data:/var/lib/postgresql/data # volume_name:container_path - postgres_data volume'u PostgreSQL data directory'sine mount ediliyor (veri kalıcılığı için)
+        # /var/lib/postgresql/data:
+        # PostgreSQL container'ı içindeki data directory path'i
+        # PostgreSQL'in database file'larını sakladığı standart lokasyon
+    healthcheck: # healthcheck
+      test: ["CMD-SHELL", "pg_isready -U postgres"] # test command - pg_isready komutu PostgreSQL'in hazır olup olmadığını kontrol eder (10 saniyede bir)
+      interval: 10s # interval
+      timeout: 5s # timeout
+      retries: 5 # retries
+
+volumes: # volumes to mount - Volume'ların tanımlandığı yer, Docker'a "bu isimde bir volume oluştur" diyor
+  postgres_data: # volume name
+    # PostgreSQL'in kendi datası değil
+    # Docker tarafından host sistemde oluşturulan bir volume
+    # Container silinse bile veri kalıcı olarak saklanıyor
+
+# Localde nerede:
+# Linux/Mac'te genellikle:
+# /var/lib/docker/volumes/postgres_data/_data
+
+# Volume'u kontrol etmek için:
+# docker volume inspect postgres_data
+
+# Windows'taki PostgreSQL:
+# Host sisteminde native kurulu PostgreSQL
+# Bu Docker container ile hiçbir ilişkisi yok
+
+# Docker Container'daki PostgreSQL:
+# Tamamen izole environment'ta çalışıyor
+# Container kendi Linux sistemine sahip
+# /var/lib/postgresql/data container içindeki Linux path'i
+
+# Volume Mapping Nasıl Çalışıyor:
+# volumes:
+#   - postgres_data:/var/lib/postgresql/data
+
+# postgres_data: Windows'ta Docker volume (Docker Desktop yönetiyor)
+# /var/lib/postgresql/data: Container içindeki Linux path
+# Windows'ta gerçek lokasyon: \\wsl$\docker-desktop-data\data\docker\volumes\
+
+# Docker Container'da:
+# PostgreSQL server/motor çalışıyor
+# Veritabanı servisi sağlıyor
+
+# Node.js uygulamasında:
+# PostgreSQL server'a bağlanmak için client library gerekiyor
+# pg veya postgres paketi bu driver/client rolünü üstleniyor
+
+# Analoji:
+# PostgreSQL Container = Restoran (yemek yapan)
+# PostgreSQL npm paketi = Telefon (restoranta sipariş vermek için)
+
+# Container = Database server
+# npm paketi = Database client/driver
+# Drizzle = ORM (client'ı kullanarak)

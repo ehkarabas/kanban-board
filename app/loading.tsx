@@ -1,9 +1,7 @@
-// import { Button } from "@/components/ui/button"
-// import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { KanbanBoardLoading } from "@/components/kanban-board-loading"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { KanbanBoardServer } from "@/components/kanban-board-server"
 
-export default function Home() {
+export default function Loading() {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-6">
@@ -18,8 +16,8 @@ export default function Home() {
           </div>
           <ThemeToggle />
         </div>
-        <KanbanBoardServer />
+        <KanbanBoardLoading />
       </div>
     </div>
   )
-}
+} 

@@ -1,5 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# gitignore dosyasını gitignore dosyasına eklemeye gerek yoktur
+
 # dependencies
 /node_modules
 /.pnp
@@ -39,3 +41,24 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# vscode
+.vscode
+
+# cursor
+.cursor/**
+
+# others
+.cursorrules-deprecated
+DATABASE.md
+/components/kanban-board-deprecated.tsx
+/components/kbs-deprecated.tsx
+/public/favicon.ico
+/public/ehlogo-transparent.svg
+/lib/db/migrations/**
+/scripts/apply-deleted-at-migration.ts
+/scripts/migrate-is-deleted-to-deleted-at.ts
+/scripts/run-uuid-migration.ts
+/scripts/reorder-columns.ts
+/scripts/run-task-soft-delete-migration.ts
+/scripts/run-column-soft-delete-migration.ts
